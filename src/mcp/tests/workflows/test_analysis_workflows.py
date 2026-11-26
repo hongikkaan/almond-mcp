@@ -13,6 +13,7 @@ VALIDATE = "analysis_02-validate_structure"
 VISUALIZE = "analysis_03-visualize_structure"
 EXPORT = "analysis_04-export_structural_report"
 BEAM_ID = str(UUID(int=1))
+SECOND_MEMBER_ID = str(UUID(int=2))
 
 
 def analysis_server(database, bridge):
@@ -60,6 +61,34 @@ def test_cantilever_report(tmp_path, call_tool):
     _, output = call_tool(analysis_server(database, unavailable_bridge), EXPORT, path=str(report))
     assert output["status"] == "success" and output["runs"] == 1
     assert "native (INDICATIVE)" in report.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize(
+    ("structure_type", "anchors", "axes", "force", "expected"),
+    [
+        ("truss", [[-1, 0, 0], [1, 0, 0]], [[[-1, 0, 0], [0, 0, 1]], [[1, 0, 0], [0, 0, 1]]],
+         "n_compression_kn", 10.607),
+        ("frame", [[0, 0, 0]], [[[0, 0, 0], [2, 0, 0]], [[2, 0, 0], [2, 1, 0]]], "t_max_knm", 7.5),
+    ],
+)
+def test_member_design_forces(tmp_path, call_tool, structure_type, anchors, axes, force, expected):
+    guids = [BEAM_ID, SECOND_MEMBER_ID]
+    # A symmetric 45° truss splits the factored load over its struts.
+    # The offset cantilever transfers half the factored load at a 1 m lever arm.
+    members = [{"source_guids": [guid], "points": axis,
+                "section": {"shape": "solid_rectangle", "width": 0.3, "height": 0.5}}
+               for guid, axis in zip(guids, axes, strict=True)]
+    if structure_type == "truss":
+        for member in members:
+            member["release"] = "pinned"
+    model = {"status": "ok", "shells": 0, "anchor_points": anchors, "members": members}
+    server = analysis_server(tmp_path / "project.sqlite3", lambda *_args, **_options: json.dumps(model))
+    _, result = call_tool(server, VALIDATE, guids=guids, engine="native", load_kn=10, self_weight=False,
+                          stability="off", structure_type=structure_type, detail=True)
+    member = result["members"][0]
+    assert member[force] == pytest.approx(expected, abs=0.001)
+    assert member["n_tension_kn"] == 0
+    assert member["section"] and member["governing_check"] and member["governing_combination"]
 
 
 def test_invalid_model_has_no_run(tmp_path, call_tool):

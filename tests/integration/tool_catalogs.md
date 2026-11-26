@@ -2,8 +2,8 @@
 
 beyond와 RhinoTerminal의 `tools/list`에서 읽은 설명과 입출력 스키마다. 공통 값은 한 번만 표시한다. 각 해시는 도구를 이름순으로 정렬하고 객체 키를 정렬한 뒤, 공백과 유니코드 이스케이프 없이 UTF-8 JSON으로 직렬화한 전체 배열에서 계산한다.
 
-- beyond 도구 81개, 선언 SHA-256 `72dfcdd69a39ddcd8343e22988ba6b4e4b41c760e839657b98193da9a329dce7`
-- RhinoTerminal 도구 76개, 선언 SHA-256 `d9c78115346aae4a9070faf43f320dac876f4e08229b50b2bd1b17edca4f67ee`
+- beyond 도구 81개, 선언 SHA-256 `ba801708e14b50c60349b48855cb2c5f36634b20f2b708d3c553285aedda4711`
+- RhinoTerminal 도구 76개, 선언 SHA-256 `c1d8d43918da0e678f29a80d9bf1a67c7602bc7a3466cb36d41012649ed3f7e5`
 
 ### 1. analysis_01-list_design_codes
 
@@ -446,20 +446,292 @@ Rhino 구조 형상을 해석하고 설계기준을 검토한다. 실제 엔진�
             "type": "string"
           },
           "members": {
-            "description": "native에서 `detail: true`일 때 부재별 단면력·처짐과 지점 반력.",
+            "description": "native에서 `detail: true`일 때 부재별 상세 검토.",
             "items": {
               "properties": {
+                "buckling_curves": {
+                  "anyOf": [
+                    {
+                      "items": {
+                        "type": "string"
+                      },
+                      "type": "array"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "buckling_length_m": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "buckling_utilization": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "chi": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "chi_y": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "chi_z": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "cm_y": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "cm_z": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "cross_section_utilization": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "deflection_mm": {
+                  "type": "number"
+                },
+                "deflection_ratio": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "elements": {
+                  "type": "integer"
+                },
+                "end_m": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                "eq_6_61": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "eq_6_62": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "governing_check": {
+                  "type": "string"
+                },
+                "governing_combination": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": "string"
+                },
+                "kyy": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "kzz": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "lambda_y": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "lambda_z": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "layer": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "length_m": {
                   "type": "number"
                 },
                 "m_max_knm": {
                   "type": "number"
+                },
+                "material": {
+                  "type": "string"
+                },
+                "max_displacement_mm": {
+                  "type": "number"
+                },
+                "max_stress_mpa": {
+                  "type": "number"
+                },
+                "moduli": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "n_compression_kn": {
+                  "type": "number"
+                },
+                "n_tension_kn": {
+                  "type": "number"
+                },
+                "pinned_ends": {
+                  "properties": {
+                    "end": {
+                      "type": "boolean"
+                    },
+                    "start": {
+                      "type": "boolean"
+                    }
+                  },
+                  "type": "object"
+                },
+                "role": {
+                  "type": "string"
+                },
+                "section": {
+                  "type": "string"
+                },
+                "section_class": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "slenderness": {
+                  "anyOf": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "source_guids": {
                   "items": {
                     "type": "string"
                   },
                   "type": "array"
+                },
+                "start_m": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "maxItems": 3,
+                  "minItems": 3,
+                  "type": "array"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "t_max_knm": {
+                  "type": "number"
                 },
                 "utilization": {
                   "type": "number"
@@ -542,6 +814,9 @@ Rhino 구조 형상을 해석하고 설계기준을 검토한다. 실제 엔진�
                     "type": "number"
                   },
                   "type": "array"
+                },
+                "restraint": {
+                  "type": "string"
                 },
                 "sls": {
                   "additionalProperties": {
@@ -11688,6 +11963,16 @@ outline으로 중첩 블록 구조를 조회하고 resolve-block으로 공유 �
           "nodes": {
             "items": {
               "properties": {
+                "all_members_in_scope": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
                 "block_path_ids": {
                   "items": {
                     "type": "string"
@@ -11738,6 +12023,9 @@ outline으로 중첩 블록 구조를 조회하고 resolve-block으로 공유 �
                 "entity_kind": {
                   "type": "string"
                 },
+                "geometry_crc": {
+                  "type": "integer"
+                },
                 "geometry_kind": {
                   "type": "string"
                 },
@@ -11763,6 +12051,23 @@ outline으로 중첩 블록 구조를 조회하고 resolve-block으로 공유 �
                 "locked": {
                   "type": "boolean"
                 },
+                "matched_member_count": {
+                  "type": "integer"
+                },
+                "member_count": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "전체 그룹 개수와 전체 포함 여부는 멤버십을 확인하지 못하면 null."
+                },
+                "membership_complete": {
+                  "type": "boolean"
+                },
                 "name": {
                   "type": "string"
                 },
@@ -11771,6 +12076,9 @@ outline으로 중첩 블록 구조를 조회하고 resolve-block으로 공유 �
                 },
                 "object_type": {
                   "type": "string"
+                },
+                "observed_member_count": {
+                  "type": "integer"
                 },
                 "parent_number": {
                   "anyOf": [
@@ -20189,7 +20497,7 @@ Holon의 등록 정보와 구성원 조회. live=true로 현재 Rhino 상태를 
 **beyond · RhinoTerminal**
 
 ```txt
-Holon 등록 해제. Rhino 형상과 그룹은 보존.
+Holon 등록 해제. Rhino 형상과 그룹은 보존. 변경 여부가 불확실하면 scene_11-sync_holon tool로 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -20251,8 +20559,17 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
           "error_code": {
             "type": "string"
           },
+          "expected_model_path": {
+            "type": "string"
+          },
+          "holon_id": {
+            "type": "string"
+          },
           "message": {
             "type": "string"
+          },
+          "requires_reconciliation": {
+            "type": "boolean"
           },
           "status": {
             "type": "string"
@@ -20406,7 +20723,7 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
 **beyond · RhinoTerminal**
 
 ```txt
-현재 Rhino 구성원으로 Holon 등록 정보를 갱신한다. holon_ids 또는 scene_id로 대상을 선택한다. 둘 다 생략하면 연결 모델 전체를 확인한다. holon_ids는 서로 다른 ID 1~64개다. 한 Holon의 그룹 일치를 확인하려면 holon_id와 rhino_group_id를 함께 보낸다.
+현재 Rhino 구성원으로 Holon 등록 정보를 갱신한다. holon_ids 또는 scene_id로 대상을 선택한다. 둘 다 생략하면 연결 모델 전체를 확인한다. holon_ids는 서로 다른 ID 1~64개다. 한 Holon의 그룹 일치를 확인하려면 holon_id와 rhino_group_id를 함께 보낸다. Scene 범위에 부모 Holon이 빠져 있으면 응답의 next_action을 따른다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -20562,6 +20879,31 @@ Holon 등록 해제. Rhino 형상과 그룹은 보존.
             "type": "boolean"
           },
           "message": {
+            "type": "string"
+          },
+          "missing_holon_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "missing_parent_holon_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "mutation_applied": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "next_action": {
             "type": "string"
           },
           "problems": {
@@ -20728,7 +21070,7 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
 **beyond · RhinoTerminal**
 
 ```txt
-물리적 요소와 관계를 Holon으로 등록하거나 갱신
+물리적 요소와 관계를 Holon으로 등록하거나 갱신한다. 변경 여부가 불확실하면 scene_11-sync_holon tool로 확인한다.
 ```
 
 <details><summary>beyond 입력 스키마</summary>
@@ -20898,6 +21240,9 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
           "error_code": {
             "type": "string"
           },
+          "expected_model_path": {
+            "type": "string"
+          },
           "holon": {
             "properties": {
               "availability": {
@@ -20918,8 +21263,14 @@ Scene의 프로젝트 파일 연결 변경 또는 해제
             },
             "type": "object"
           },
+          "holon_id": {
+            "type": "string"
+          },
           "message": {
             "type": "string"
+          },
+          "requires_reconciliation": {
+            "type": "boolean"
           },
           "status": {
             "type": "string"

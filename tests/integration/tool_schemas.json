@@ -1793,6 +1793,9 @@
               "error_code": {
                 "type": "string"
               },
+              "expected_model_path": {
+                "type": "string"
+              },
               "holon": {
                 "type": "object",
                 "properties": {
@@ -1813,8 +1816,14 @@
                   }
                 }
               },
+              "holon_id": {
+                "type": "string"
+              },
               "message": {
                 "type": "string"
+              },
+              "requires_reconciliation": {
+                "type": "boolean"
               },
               "status": {
                 "type": "string"
@@ -2293,6 +2302,31 @@
               "message": {
                 "type": "string"
               },
+              "missing_holon_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "missing_parent_holon_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "mutation_applied": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "next_action": {
+                "type": "string"
+              },
               "problems": {
                 "type": "array",
                 "items": {},
@@ -2349,8 +2383,17 @@
               "error_code": {
                 "type": "string"
               },
+              "expected_model_path": {
+                "type": "string"
+              },
+              "holon_id": {
+                "type": "string"
+              },
               "message": {
                 "type": "string"
+              },
+              "requires_reconciliation": {
+                "type": "boolean"
               },
               "status": {
                 "type": "string"
@@ -4634,6 +4677,39 @@
                     },
                     "entity_kind": {
                       "type": "string"
+                    },
+                    "member_count": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "전체 그룹 개수와 전체 포함 여부는 멤버십을 확인하지 못하면 null."
+                    },
+                    "all_members_in_scope": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "observed_member_count": {
+                      "type": "integer"
+                    },
+                    "matched_member_count": {
+                      "type": "integer"
+                    },
+                    "membership_complete": {
+                      "type": "boolean"
+                    },
+                    "geometry_crc": {
+                      "type": "integer"
                     }
                   }
                 }
@@ -11711,27 +11787,299 @@
                 "items": {
                   "type": "object",
                   "properties": {
+                    "id": {
+                      "type": "string"
+                    },
                     "source_guids": {
                       "type": "array",
                       "items": {
                         "type": "string"
                       }
                     },
+                    "layer": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "role": {
+                      "type": "string"
+                    },
+                    "start_m": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "end_m": {
+                      "type": "array",
+                      "minItems": 3,
+                      "maxItems": 3,
+                      "items": {
+                        "type": "number"
+                      }
+                    },
+                    "length_m": {
+                      "type": "number"
+                    },
+                    "elements": {
+                      "type": "integer"
+                    },
+                    "section": {
+                      "type": "string"
+                    },
+                    "material": {
+                      "type": "string"
+                    },
+                    "pinned_ends": {
+                      "type": "object",
+                      "properties": {
+                        "start": {
+                          "type": "boolean"
+                        },
+                        "end": {
+                          "type": "boolean"
+                        }
+                      }
+                    },
+                    "status": {
+                      "type": "string"
+                    },
                     "utilization": {
                       "type": "number"
                     },
-                    "m_max_knm": {
+                    "governing_combination": {
+                      "type": "string"
+                    },
+                    "governing_check": {
+                      "type": "string"
+                    },
+                    "n_tension_kn": {
+                      "type": "number"
+                    },
+                    "n_compression_kn": {
                       "type": "number"
                     },
                     "v_max_kn": {
                       "type": "number"
                     },
+                    "m_max_knm": {
+                      "type": "number"
+                    },
+                    "t_max_knm": {
+                      "type": "number"
+                    },
+                    "cross_section_utilization": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "buckling_utilization": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "max_stress_mpa": {
+                      "type": "number"
+                    },
+                    "slenderness": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "chi": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "moduli": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "section_class": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "buckling_curves": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "chi_y": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "chi_z": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lambda_y": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "lambda_z": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cm_y": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "cm_z": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "kyy": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "kzz": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "eq_6_61": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "eq_6_62": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "buckling_length_m": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "max_displacement_mm": {
+                      "type": "number"
+                    },
                     "deflection_mm": {
                       "type": "number"
+                    },
+                    "deflection_ratio": {
+                      "anyOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   }
                 },
-                "description": "native에서 `detail: true`일 때 부재별 단면력·처짐과 지점 반력."
+                "description": "native에서 `detail: true`일 때 부재별 상세 검토."
               },
               "supports": {
                 "type": "array",
@@ -11746,6 +12094,9 @@
                       "items": {
                         "type": "number"
                       }
+                    },
+                    "restraint": {
+                      "type": "string"
                     },
                     "sls": {
                       "type": "object",

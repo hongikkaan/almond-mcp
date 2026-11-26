@@ -8,9 +8,11 @@ import pytest
 from fastmcp import FastMCP
 from PIL import Image
 
+from almond_mcp.features.components import tools as component_tools
 from almond_mcp.features.context import tools as context_tools
 from almond_mcp.features.drawings import tools as drawing_tools
 from almond_mcp.features.modeling import tools as modeling_tools
+from almond_mcp.retrieval_store import AlmondStore
 
 
 FIRST, SECOND = (str(UUID(int=n)) for n in (1, 2))
@@ -71,6 +73,100 @@ def test_object_geometry_and_dictionary(tmp_path, monkeypatch, call_tool):
     reply, evidence = call_tool(server, "inspect_02-get_objects", fields=fields)
     assert not reply.is_error
     assert evidence["objects"] == [{key: observed[key] for key in fields}]
+
+
+def test_filtered_hierarchy_membership(tmp_path, monkeypatch, call_tool):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "Atrium.3dm"))
+    group = {"id": FIRST, "number": 1, "depth": 1, "parent_number": None, "entity_kind": "group",
+             "children_state": "expanded", "member_count": 3, "observed_member_count": 3,
+             "matched_member_count": 1, "membership_complete": True, "all_members_in_scope": False}
+    child = {"id": SECOND, "number": 2, "depth": 2, "parent_number": 1, "entity_kind": "object",
+             "children_state": "leaf", "document_object": True, "geometry_crc": 0xFFFFFFFF}
+    incomplete = {"number": 3, "depth": 1, "parent_number": None, "entity_kind": "group",
+                  "children_state": "unavailable", "member_count": None, "observed_member_count": 0,
+                  "matched_member_count": 0, "membership_complete": False, "all_members_in_scope": None}
+
+    def bridge(raw):
+        request = json.loads(raw)
+        if request["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"object_observation": 4}})
+        assert request["result_mode"] == "hierarchy" and request["selected"]
+        return json.dumps({"status": "success", "nodes": [group, child, incomplete]})
+
+    server = with_bridge(context_tools.register, bridge)
+    reply, evidence = call_tool(server, "inspect_02-get_objects", result_mode="hierarchy",
+                                recursive=True, depth=2, selected=True, fields=["id", "geometry_crc"])
+    assert not reply.is_error
+    assert evidence["nodes"] == [group, child, incomplete]
+
+
+@pytest.mark.parametrize("operation", ["upsert", "unregister"])
+def test_lost_holon_reply(tmp_path, monkeypatch, call_tool, operation):
+    model = tmp_path / "Atrium.3dm"
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(model))
+    store = AlmondStore(tmp_path / "project.sqlite3")
+    scene_id = store.create_scene("Entrance")["scene_id"]
+    server = FastMCP("Holon registration workflow")
+    dispatched = []
+
+    def bridge(raw):
+        request = json.loads(raw)
+        if request["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"design_components": 1, "component_registry": 2}})
+        assert request["type"] == "design_component"
+        dispatched.append(request)
+        if request["action"] == operation:
+            raise TimeoutError("Native registration reply lost")
+        assert request["action"] == "upsert"
+        return json.dumps({"status": "success", "component": {
+            **request, "model_path": request["expected_model_path"], "rhino_group_id": SECOND, "complete": True,
+            "objects": [{"rhino_guid": FIRST, "component_id": request["component_id"],
+                         "object_type": "Brep", "bounds_mm": [0, 0, 0, 10, 10, 10]}],
+        }})
+
+    component_tools.register(server, SimpleNamespace(_send_and_receive=bridge, retrieval_store=store))
+    _, created = call_tool(server, "scene_13-upsert_holon", name="Entrance canopy", object_ids=[FIRST],
+                           scene_ids=[scene_id])
+    if operation == "unregister":
+        assert created["status"] == "success"
+        _, evidence = call_tool(server, "scene_09-remove_holon", holon_id=created["holon"]["holon_id"])
+    else:
+        evidence = created
+
+    attempt = dispatched[-1]
+    assert attempt["action"] == operation
+    assert evidence["status"] == "error" and evidence["error_code"] == "component_reconciliation_required"
+    assert evidence["requires_reconciliation"] is True
+    assert evidence["holon_id"] == attempt["component_id"]
+    assert evidence["expected_model_path"] == attempt["expected_model_path"]
+
+
+def test_holon_sync_requests_missing_parent(tmp_path, monkeypatch, call_tool):
+    monkeypatch.setenv("ALMOND_MODEL_PATH", str(tmp_path / "Atrium.3dm"))
+    store = AlmondStore(tmp_path / "project.sqlite3")
+    scene_id = store.create_scene("Entrance")["scene_id"]
+    parent_id, child_id = "component_canopy", "component_roof"
+
+    def bridge(raw):
+        request = json.loads(raw)
+        if request["type"] == "get_rhino_context":
+            return json.dumps({"status": "success", "capabilities": {"design_components": 1, "component_registry": 2}})
+        assert request["action"] == "inspect_many" and request["discover_scene"]
+        model_path = request["expected_model_path"]
+        return json.dumps({"status": "success", "model_path": model_path, "complete": True,
+                           "editing": {"stable": True}, "components": [{
+                               "component_id": child_id, "parent_component_id": parent_id, "name": "Roof",
+                               "rhino_group_id": SECOND, "model_path": model_path, "scene_ids": [scene_id],
+                               "complete": True, "objects": [],
+                           }]})
+
+    server = FastMCP("Holon alignment workflow")
+    component_tools.register(server, SimpleNamespace(_send_and_receive=bridge, retrieval_store=store))
+    _, evidence = call_tool(server, "scene_11-sync_holon", scene_id=scene_id)
+    assert evidence["status"] == "error" and evidence["error_code"] == "component_scope_incomplete"
+    assert evidence["mutation_applied"] is False
+    assert evidence["missing_parent_holon_ids"] == [parent_id]
+    assert "Align the missing Holon IDs explicitly first" in evidence["next_action"]
 
 
 def test_lost_section_reply(tmp_path, monkeypatch, call_tool):

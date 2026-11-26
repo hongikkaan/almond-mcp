@@ -986,6 +986,10 @@ declare const tools: {
     nodes?: Array<ObservedObject & {
       number?: Integer; parent_number?: Integer | null; depth?: Integer; children_state?: string;
       root_object_id?: string; block_path_ids?: string[]; document_object?: boolean; entity_kind?: string;
+      // 전체 그룹 개수와 전체 포함 여부는 멤버십을 확인하지 못하면 null.
+      member_count?: Integer | null; all_members_in_scope?: boolean | null;
+      observed_member_count?: Integer; matched_member_count?: Integer; membership_complete?: boolean;
+      geometry_crc?: Integer;
     }>;
     objects?: Array<ObservedObject & {
       face_count?: Integer;
@@ -1740,9 +1744,23 @@ declare const tools: {
     };
     error_code?: string;
     message?: string;
-    // native에서 `detail: true`일 때 부재별 단면력·처짐과 지점 반력.
-    members?: { source_guids?: string[]; utilization?: number; m_max_knm?: number; v_max_kn?: number; deflection_mm?: number }[];
-    supports?: { node?: Integer; position_m?: number[]; sls?: Record<string, number>; uls?: Record<string, Record<string, number>> }[];
+    // native에서 `detail: true`일 때 부재별 상세 검토.
+    members?: Array<{
+      id?: string; source_guids?: string[]; layer?: string | null; role?: string;
+      start_m?: [number, number, number]; end_m?: [number, number, number]; length_m?: number; elements?: Integer;
+      section?: string; material?: string; pinned_ends?: { start?: boolean; end?: boolean };
+      status?: string; utilization?: number; governing_combination?: string; governing_check?: string;
+      n_tension_kn?: number; n_compression_kn?: number; v_max_kn?: number; m_max_knm?: number; t_max_knm?: number;
+      cross_section_utilization?: number | null; buckling_utilization?: number | null;
+      max_stress_mpa?: number; slenderness?: number | null; chi?: number | null;
+      moduli?: string | null; section_class?: Integer | null; buckling_curves?: string[] | null;
+      chi_y?: number | null; chi_z?: number | null; lambda_y?: number | null; lambda_z?: number | null;
+      cm_y?: number | null; cm_z?: number | null; kyy?: number | null; kzz?: number | null;
+      eq_6_61?: number | null; eq_6_62?: number | null; buckling_length_m?: number | null;
+      max_displacement_mm?: number; deflection_mm?: number; deflection_ratio?: Integer | null;
+    }>;
+    supports?: { node?: Integer; position_m?: number[]; restraint?: string; sls?: Record<string, number>;
+                 uls?: Record<string, Record<string, number>> }[];
     // indicative 해석에서는 판정이 없을 수 있음(null). 구조 안전 인증은 별도.
     passed?: boolean | null;
     results?: {
@@ -2162,7 +2180,7 @@ declare const tools: {
 
 ### scene_09-remove_holon
 
-Holon 등록 해제. Rhino 형상과 그룹은 보존.
+Holon 등록 해제. Rhino 형상과 그룹은 보존. 변경 여부가 불확실하면 scene_11-sync_holon tool로 확인한다.
 
 ```ts
 declare const tools: {
@@ -2172,8 +2190,10 @@ declare const tools: {
     holon_id: string;
   }): Promise<JsonResult<{
     error_code?: string;
-
+    expected_model_path?: string;
+    holon_id?: string;
     message?: string;
+    requires_reconciliation?: boolean;
     status?: string;
   }>>;
 };
@@ -2206,7 +2226,7 @@ declare const tools: {
 
 ### scene_11-sync_holon
 
-현재 Rhino 구성원으로 Holon 등록 정보를 갱신한다. holon_ids 또는 scene_id로 대상을 선택한다. 둘 다 생략하면 연결 모델 전체를 확인한다. holon_ids는 서로 다른 ID 1~64개다. 한 Holon의 그룹 일치를 확인하려면 holon_id와 rhino_group_id를 함께 보낸다.
+현재 Rhino 구성원으로 Holon 등록 정보를 갱신한다. holon_ids 또는 scene_id로 대상을 선택한다. 둘 다 생략하면 연결 모델 전체를 확인한다. holon_ids는 서로 다른 ID 1~64개다. 한 Holon의 그룹 일치를 확인하려면 holon_id와 rhino_group_id를 함께 보낸다. Scene 범위에 부모 Holon이 빠져 있으면 응답의 next_action을 따른다.
 
 ```ts
 declare const tools: {
@@ -2226,6 +2246,10 @@ declare const tools: {
     // 모든 대상의 현재 Rhino 상태를 문제 없이 확인한 경우 true
     live_verified?: boolean;
     message?: string;
+    missing_holon_ids?: string[];
+    missing_parent_holon_ids?: string[];
+    mutation_applied?: boolean | null;
+    next_action?: string;
     // 문제 항목과 무관한 유효 등록은 함께 갱신될 수 있음
     problems?: Array<unknown>;
     scene_revisions?: Record<string, Integer>;
@@ -2259,7 +2283,7 @@ declare const tools: {
 
 ### scene_13-upsert_holon
 
-물리적 요소와 관계를 Holon으로 등록하거나 갱신
+물리적 요소와 관계를 Holon으로 등록하거나 갱신한다. 변경 여부가 불확실하면 scene_11-sync_holon tool로 확인한다.
 
 ```ts
 declare const tools: {
@@ -2281,8 +2305,11 @@ declare const tools: {
     scene_ids?: string[] | null;
   }): Promise<JsonResult<{
     error_code?: string;
+    expected_model_path?: string;
     holon?: Pick<HolonRecord, "holon_id" | "rhino_group_id" | "availability" | "object_count"> & { live_verified?: boolean };
+    holon_id?: string;
     message?: string;
+    requires_reconciliation?: boolean;
     status?: string;
   }>>;
 };
