@@ -4,7 +4,7 @@ from collections import defaultdict
 
 from almond_mcp.managed_paths import relative_output
 from almond_mcp.query_output import project_query
-from almond_mcp.tool_response import error_payload
+from almond_mcp.tool_response import error_payload, wrapped_json_result
 
 
 VIEW_CATALOGUES = ("named_views", "layouts")
@@ -16,7 +16,7 @@ VIEW_LIST_LIMIT = 128
 
 
 def _error(message, code="invalid_arguments"):
-    return json.dumps(error_payload(message, error_code=code), ensure_ascii=False)
+    return wrapped_json_result(error_payload(message, error_code=code))
 
 
 def display_mode_menu_error(capabilities):
@@ -99,14 +99,13 @@ def _observe(send, sections):
 def query(send, sections=None, include_ids=False, include_editor_details=False):
     if type(include_ids) is not bool or type(include_editor_details) is not bool:
         return _error("include_ids and include_editor_details must be booleans.")
-    default = sections is None
-    sections = list(DEFAULT_SECTIONS) if default else sections
+    sections = list(DEFAULT_SECTIONS) if sections is None else sections
     if not isinstance(sections, list) or any(not isinstance(s, str) or s not in SECTIONS for s in sections):
         return _error("sections must contain " + ", ".join(SECTIONS) + ".")
     try:
         response = _observe(send, sections)
         if response["status"] == "error":
-            return json.dumps(response, ensure_ascii=False)
+            return wrapped_json_result(response)
         missing = [s for s in sections if s not in response]
         if missing:
             raise ValueError("The Bridge omitted requested sections: " + ", ".join(missing))
@@ -116,7 +115,7 @@ def query(send, sections=None, include_ids=False, include_editor_details=False):
             value = response[section]
             if section == "document":
                 value = document_metadata(value, angle_key="angle_tolerance")
-            elif section in DISCOVERY_SECTIONS:
+            elif section in (*VIEW_CATALOGUES, "layer_tree", "display_modes"):
                 value = project_discovery_section(section, value, warnings)
             elif section == "editor" and isinstance(value, dict) and not include_editor_details:
                 value = {k: value.get(k) for k in ("mode", "target", "stable", "warnings")}
@@ -127,8 +126,6 @@ def query(send, sections=None, include_ids=False, include_editor_details=False):
         catalogues = {key: result.pop(key) for key in ALWAYS_IDENTIFIED if key in result}
         result = project_query(result, include_ids=include_ids)
         result.update(catalogues)
-        if default:
-            result["next_step_guide"] = "현재 화면을 보려면 capture_03-current_view tool을 사용하세요."
-        return json.dumps(relative_output(result, preserve_text_fields=("name", "layer_tree")), ensure_ascii=False)
+        return wrapped_json_result(relative_output(result, verbatim_fields=("name", "layer_tree")))
     except Exception as exc:
         return _error(f"Could not read the live Rhino context: {exc}", "bridge_error")

@@ -131,6 +131,7 @@ class ModelAssetIndex(AssetLibraryIndexer):
     def search_page(self, **filters):
         page = super().search_page(**filters)
         page["assets"] = [self.public_record(self.get(item["asset_id"])) for item in page["assets"]]
+        page["next_offset"] = page["offset"] + len(page["assets"]) if page["truncated"] else None
         return page
 
 

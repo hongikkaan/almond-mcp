@@ -2,7 +2,6 @@
 from almond_mcp.query_output import select_fields, requires_full_evidence
 from almond_mcp.managed_paths import relative_output
 from almond_mcp.features.planning.updates import PlanningUpdate
-from almond_mcp.tool_guidance import next_step
 from datetime import datetime, timedelta, timezone
 import json
 
@@ -29,7 +28,7 @@ STEP_HANDOFF_FIELDS = ("takeaways", "design_rationale")
 def encode(payload: dict) -> str:
     """Planning handles are always visible; errors retain their original evidence."""
     value = payload if requires_full_evidence(payload) else relative_output(
-        payload, preserve_text_fields=STEP_HANDOFF_FIELDS)
+        payload, verbatim_fields=STEP_HANDOFF_FIELDS)
     return json.dumps(value, ensure_ascii=False)
 
 
@@ -43,11 +42,7 @@ def update_ack(update: PlanningUpdate, kind: str, step_id: str = "") -> dict:
               kind: {key: update.record[key] for key in keys}, "issues": update.issues}
     if step_id:
         step = next(item for item in update.record["steps"] if item["step_id"] == step_id)
-        result["step"] = {"step_id": step_id, "status": step["status"], "loop_no": update.record["loop_no"]}
-    if update.plan_completed:
-        guide = next_step("update_planning", result, {"target": "plan"})
-        cleanup = "이 Plan 과정에서만 사용했고 이제 필요 없는 객체·레이어·레이아웃·Named View를 정리하세요."
-        result["next_step_guide"] = f"{guide} {cleanup}" if guide else cleanup
+        result["step"] = {"step_id": step_id, "status": step["status"]}
     return result
 
 
@@ -59,7 +54,7 @@ def kst_minute(value: str) -> str:
 
 
 def phase_detail(phase: dict, include_details: bool = False) -> dict:
-    result = {"id": phase["phase_id"], "type": "phase", "name": phase["name"], "status": phase["status"]}
+    result = {"phase_id": phase["phase_id"], "type": "phase", "name": phase["name"], "status": phase["status"]}
     if include_details:
         result["phase"] = {key: phase[key] for key in ("description", "depends_on", "previous_id", "plan_titles")}
         result["phase"]["file_name"] = phase["file_names"]
@@ -67,7 +62,7 @@ def phase_detail(phase: dict, include_details: bool = False) -> dict:
 
 
 def plan_detail(plan: dict, include_details: bool = False, *, historical: bool = False) -> dict:
-    result = {"id": plan["plan_id"], "type": "plan", "name": plan["title"], "status": plan["status"],
+    result = {"type": "plan", "name": plan["title"], "status": plan["status"],
               "plan_id": plan["plan_id"], "loop_no": plan["loop_no"], "revision": plan["revision"], "read_only": historical}
     if include_details:
         detail = {key: plan[key] for key in (
@@ -75,14 +70,14 @@ def plan_detail(plan: dict, include_details: bool = False, *, historical: bool =
             "parent_plan", "child_plan", "loop_artifact_dir", "feedback", "component_ids")}
         detail["depends_on"] = [v for v in plan["depends_on"] if isinstance(v, str) and v.startswith("plan_") and v[5:].strip()]
         detail.update({key: kst_minute(plan[key]) for key in ("created_at", "updated_at")})
-        detail["steps"] = [{key: step[key] for key in ("step_id", "step_type", "name", "status", "loop_no")} for step in plan["steps"]]
+        detail["steps"] = [{key: step[key] for key in ("step_id", "step_type", "name", "status")} for step in plan["steps"]]
         result["plan"] = detail
     return result
 
 
 def step_detail(record: dict, include_details: bool = False, *, historical: bool = False) -> dict:
     step = record["step"]
-    result = {"id": step["step_id"], "type": "step", "name": step["name"], "status": step["status"],
+    result = {"step_id": step["step_id"], "type": "step", "name": step["name"], "status": step["status"],
               "plan_id": record["plan_id"], "loop_no": record["loop_no"], "revision": record["revision"], "read_only": historical}
     if include_details:
         result["step"] = {key: step[key] for key in ("step_type", "input_refs", "output_refs", *STEP_HANDOFF_FIELDS)}

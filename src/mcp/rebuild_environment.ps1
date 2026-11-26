@@ -112,6 +112,4 @@ if ($VerifyOnly) {
     Write-Output 'All selected environments match uv.lock and this checkout. No installed packages or lockfile were changed.'
 } elseif ($Development) {
     Write-Output 'Offline development only. Use run_tests.ps1 -Development; everyday hosts and registration were not changed.'
-} else {
-    Write-Output 'Run src/cos/configure.ps1 when setting up COS.'
 }

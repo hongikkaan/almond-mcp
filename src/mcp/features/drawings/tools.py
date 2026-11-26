@@ -24,33 +24,15 @@ def _add_print_review_preparation(response: str) -> str:
         return response
     if not isinstance(result, dict) or result.get("status") != "success":
         return response
-    result["review_preparation"] = {
-        "status": "not_executed",
-        "message": (
-            "PrintDisplay was not inspected or changed. Reuse a discovered pipe matching "
-            "this connection's Rhino PID and saved document path; discover it only if unconfirmed. "
-            "Skip this step if Document-scoped Model/Layout PrintDisplay On with Print colors "
-            "is already confirmed."
-        ),
-        "cli": {
-            "program": "rhinocode",
-            "discovery_arguments": ["list", "--json"],
-            "arguments_template": ["--rhino", "{matched_pipeId}", "command", _PRINT_DISPLAY_REVIEW_MACRO],
-        },
-    }
+    result["print_display_review"] = {"macro": _PRINT_DISPLAY_REVIEW_MACRO}
     return json.dumps(result)
 
 
 def register(mcp, context):
     """Register drawing tools against the assembling server's live services."""
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     @query_output
-    def list_drawing_recipes(include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """로드된 도면 스타일 레시피 목록. include_ids=true로 얻은 recipe_id는 drawing_02-get_recipe tool과 drawing_01-apply_style tool에서 사용.
-
-        Args:
-            field_groups: scales, parameters, source, audit, all. 생략하거나 비우면 요약.
-        """
+    def list_drawing_recipes(field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
         recipes = []
         for recipe_id, recipe in sorted(context.drawing_recipe_indexer.recipes.items()):
@@ -65,15 +47,9 @@ def register(mcp, context):
         return json.dumps(project({"total": len(recipes), "recipes": recipes}, field_groups))
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     @query_output
-    def get_drawing_recipe(recipe_id: str, include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """도면 스타일 레시피 조회. field_groups=["scales","parameters"]로 권장 축척·레이어·출력 설정을 확인한 뒤 같은 recipe_id를 drawing_01-apply_style tool에 전달한다.
-
-        Args:
-            recipe_id: 이미 확인한 레시피 ID 또는 drawing_05-list_recipes tool에서 include_ids=true로 조회한 ID.
-            field_groups: scales, parameters, source, audit, all. 생략하거나 비우면 요약.
-        """
+    def get_drawing_recipe(recipe_id: str, field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
         recipe = STANDARD_D if recipe_id == STANDARD_D_ID else context.drawing_recipe_indexer.get(recipe_id)
         if not recipe:
@@ -84,19 +60,12 @@ def register(mcp, context):
         }, field_groups))
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def apply_drawing_style(
         recipe_id: str = "standard_d",
         layer_path: StandardDLayerPath = None,
         overwrite: StrictBool | None = None,
     ) -> str:
-        """수동 2D 작도에 사용할 표준 D 레이어와 속성을 적용한다. 작도 전에 용도에 맞는 layer_path를 선택하고, 반환된 레이어에서 객체의 선종을 ByLayer로 사용한다. D::PlanSection은 별도다. 다른 Drawing Recipe도 명시해 적용할 수 있다.
-
-        Args:
-            recipe_id: 기본값 standard_d는 목록 조회 없이 바로 적용한다. 다른 레시피는 명시한 ID를 사용한다.
-            layer_path: 표준 D에서 작도할 레이어. 생략하면 표준 D 전체를 적용한다. 다른 레시피에는 사용할 수 없다.
-            overwrite: 표준 D는 기본으로 기존의 다른 정의를 보존한다. true로만 바꾼다. 공통 D를 포함한 레시피에도 이 보호를 적용한다. 나머지 레이어는 생략 시 기존처럼 덮어쓴다.
-        """
         recipe_id = recipe_id or STANDARD_D_ID
         standard_d = recipe_id == STANDARD_D_ID
         if layer_path is not None and not standard_d:
@@ -141,9 +110,8 @@ def register(mcp, context):
             return json.dumps(error_payload(f"Drawing style application failed: {exc}"))
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def import_drawing_hatch_patterns(asset_id: str) -> str:
-        """등록된 PAT 자산의 해치 패턴 정의를 Rhino 문서에 가져오기. 같은 이름이 있으면 기존 정의 재사용. 적용 범위는 해치 패턴 정의."""
         asset = context.drawing_asset_indexer.get(asset_id)
         if not asset:
             return json.dumps(error_payload(f"Unknown drawing asset_id: {asset_id}"))

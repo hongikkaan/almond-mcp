@@ -4,7 +4,7 @@ from functools import wraps
 import json
 
 
-def transform_response(result, transform, *, text_transform=None):
+def transform_response(result, transform, *, text_transform=None, mark_errors=False):
     """Map a JSON body without changing its public transport or binary evidence.
 
     FastMCP represents a string return as ``{result: <JSON text>}``; a dict
@@ -49,7 +49,10 @@ def transform_response(result, transform, *, text_transform=None):
             elif text_transform:
                 block = block.model_copy(update={"text": text_transform(block.text)})
         content.append(block)
-    return result.model_copy(update={"content": content, "structured_content": structured})
+    is_error = result.is_error
+    if mark_errors and isinstance(body, dict) and (body.get("status") == "error" or body.get("error")):
+        is_error = True
+    return result.model_copy(update={"content": content, "structured_content": structured, "is_error": is_error})
 
 
 def script_result(value):
@@ -68,6 +71,23 @@ def error_payload(message: str, *, error_code: str | None = None) -> dict:
     return result
 
 
+def wrapped_json_error(serialized: str):
+    """Mark an error while retaining the exact JSON string in both MCP fields."""
+    from fastmcp.tools import ToolResult
+    from mcp.types import TextContent
+
+    return ToolResult(content=[TextContent(type="text", text=serialized)],
+                      structured_content={"result": serialized}, is_error=True)
+
+
+def wrapped_json_result(value):
+    """Serialize an observation once and classify its explicit status."""
+    serialized = json.dumps(value, ensure_ascii=False)
+    if isinstance(value, dict) and value.get("status") == "error":
+        return wrapped_json_error(serialized)
+    return serialized
+
+
 def mcp_error_result(function):
     """Preserve the JSON string contract while marking explicit failures as MCP errors."""
     @wraps(function)
@@ -76,9 +96,6 @@ def mcp_error_result(function):
         if isinstance(serialized, str):
             value = json.loads(serialized)
             if isinstance(value, dict) and value.get("status") == "error":
-                from fastmcp.tools import ToolResult
-                from mcp.types import TextContent
-                return ToolResult(content=[TextContent(type="text", text=serialized)],
-                                  structured_content={"result": serialized}, is_error=True)
+                return wrapped_json_error(serialized)
         return serialized
     return invoke

@@ -41,7 +41,7 @@ def _public_metadata(value):
 
 
 class AssetRepository:
-    def __init__(self, roots: dict[str, Path] | None = None, *, model_index=None):
+    def __init__(self, roots: dict[str, Path] | None = None, *, model_index=None, include_drawing_files=True):
         self.roots = roots or {
             "generated": Path(paths.resolve_dir("RHINO_MCP_GENERATED_ASSET_DIR")),
             "drawing": Path(paths.resolve_dir("RHINO_MCP_DRAWING_ASSET_DIR")),
@@ -51,6 +51,7 @@ class AssetRepository:
         self.files: dict[str, tuple[Path, Path]] = {}
         self.package_files: dict[str, tuple[Path, str, str]] = {}
         self.records: dict[str, dict] = {}
+        self._include_drawing_files = include_drawing_files
         self.refresh(model_index=model_index)
 
     def file(self, library: str, relative: str | None) -> str | None:
@@ -66,6 +67,8 @@ class AssetRepository:
 
     def add_package_file(self, library, package, filename, hashes=None):
         """Register an archive route for a verified file within a drawing package."""
+        if not self._include_drawing_files:
+            return None
         if hashes is None:
             hashes, _ = drafting.package_inventory(drafting.read_package_manifest(package))
         if filename not in hashes:

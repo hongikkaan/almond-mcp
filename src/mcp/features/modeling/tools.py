@@ -16,7 +16,7 @@ from almond_mcp.features.modeling import plan_section as section_operations
 def register(mcp, context):
     """Register modeling tools against the current server execution context."""
 
-    @public_tool(mcp, wrapped=True, errors=True)
+    @public_tool(mcp, errors=True)
     def plan_section(operation: Literal["Create", "Update", "Move"], clipping_ids: list[str],
                           points: dict[str, list[StrictFloat | StrictInt]] | None = None,
                           hatch: StrictBool = True, small_details: StrictBool = False,
@@ -24,23 +24,6 @@ def register(mcp, context):
                           near_dark: StrictFloat | StrictInt = 80.0, far_dark: StrictFloat | StrictInt = 45.0,
                           include_attachments: StrictBool | None = None,
                           section_width_source: Literal["source", "output_layer"] = "source") -> str:
-        """활성 모델이나 Worksession 첨부 파일의 클리핑 평면에서 단면선·가시 입면선·해치를 생성. Update는 저장 위치에서 다시 계산해 수동 편집을 교체할 수 있고, Move는 GUID와 수동 편집을 유지한 채 원점만 이동.
-
-        Rhino는 작업 시작 120초에 취소를 요청한다. 안전한 지점에서 중단하고 Undo와 정리를 마치면 timeout 및 클리핑별 결과를 반환한다. 완료된 도면은 남는다. SDK 호출 또는 정리 중 클라이언트 대기가 끝나면 중단 여부는 미확인이다. 변경 실패 시 객체·속성·레이어 복구 시도는 recovery.attempts에 기록하며 tracked_changes_restored는 추적한 변경의 복구 결과다. requires_reconciliation=true이면 실제 도면과 Undo 상태를 확인하고 자동 재시도하지 않는다.
-
-        Args:
-            operation: Create: 생성 또는 교체. Update: 저장 위치에서 재생성. Move: 기존 도면의 평행이동.
-            clipping_ids: 활성 모델 또는 Worksession 첨부 파일의 클리핑 평면 GUID. 최소 1개, 중복은 한 번만 처리.
-            points: 클리핑 GUID별 절대 도면 원점 [x,y] 또는 [x,y,z], 문서 단위. Create에서 선택, Move에서 모든 GUID에 필수, Update에서 생략.
-            hatch: 원본 단면 스타일의 채움과 형상 조건에 따라 해치 생성
-            small_details: 입면 투영에서 작은 상세 보호
-            near_width: 가까운 입면선 두께(mm). 양수, far_width 이상.
-            far_width: 먼 입면선 두께(mm). 양수, near_width 이하.
-            near_dark: 가까운 입면선 농도(%). 0..100, far_dark 이상.
-            far_dark: 먼 입면선 농도(%). 0..100, near_dark 이하.
-            section_width_source: 단면선의 인쇄 선폭 기준. source는 원본의 유효 선폭, output_layer는 D::PlanSection::Section 레이어의 선폭. Move에는 적용되지 않음.
-            include_attachments: Worksession 첨부 형상 포함. Create에서 생략하면 활성 모델만, Update에서 생략하면 저장된 설정 사용. Move에는 적용되지 않음.
-        """
         try:
             payload = section_operations.request(operation, clipping_ids, points, hatch, small_details,
                                                  near_width, far_width, near_dark, far_dark,
@@ -51,16 +34,9 @@ def register(mcp, context):
                                "mutation_state": "not_started"})
         return json.dumps(section_operations.dispatch(payload, context._send_and_receive), ensure_ascii=False)
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def execute_rhino_script(script: str, language: str = "python",
                              timeout_seconds: StrictInt = 60) -> str:
-        """연결된 RhinoCode에서 모델링·편집·측정 코드 또는 명령 매크로 실행. 실행 완료만 기록할 때는 출력 또는 반환값에 executed를 사용하고, 작업 결과는 result와 mutation_state에서 확인한다. 완료가 불확실하면 반환된 request_id로 script_03-get_execution tool을 조회하고, 같은 변경을 다시 실행하기 전에 문서 상태를 확인한다.
-
-        Args:
-            script: 동기식 Python 소스, C# 문장 본문 또는 명령 매크로. Python은 JSON 호환 값을 result에, C#은 JSON을 result_json에 할당. doc은 연결된 문서. command는 !·Pause·대화상자 없이 종료되는 매크로
-            language: python(Python 3), python2, csharp, csharp-script, command 중 선택.
-            timeout_seconds: 완료 근거 대기 한도 1~600초. beyond·CoS는 첫 대기 최대 60초 후 pending과 request_id를 반환할 수 있음.
-        """
         if not isinstance(script, str) or not script.strip():
             return json.dumps(error_payload("script must be nonempty source or a command.",
                                             error_code="invalid_arguments"))
@@ -82,18 +58,9 @@ def register(mcp, context):
                                   timeout_seconds), ensure_ascii=False)
 
 
-    @public_tool(mcp, wrapped=True, errors=True)
+    @public_tool(mcp, errors=True)
     def edit_planar_face(object_id: str, face_index: StrictInt, expected_geometry_crc: StrictInt,
                          translation: list[StrictFloat | StrictInt], expected_model_path: str = "") -> str:
-        """닫힌 Brep의 평면 한 면을 PushPull Extend로 이동. 그룹·블록 편집을 종료한 일반 모델에서 사용. 현재 객체의 면 번호와 geometry_crc를 같은 관찰에서 가져온다. 일부 오류 응답에는 mutation_state가 없을 수 있다.
-
-        Args:
-            object_id: 연결 문서에서 관찰한 잠기지 않은 최상위 닫힌 Brep의 GUID
-            face_index: 같은 형상 관찰에서 얻은 평면 인덱스. 0부터 시작.
-            expected_geometry_crc: 면 번호와 같은 관찰에서 얻은 형상 CRC. 형상이 바뀌면 객체 교체 전에 거부.
-            translation: 문서 단위의 유한한 XYZ 값 3개. 면 법선 방향 성분의 절댓값은 문서 허용오차를 넘어야 한다.
-            expected_model_path: 생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.
-        """
         try:
             payload = face_edit.request(object_id, face_index, expected_geometry_crc, translation,
                                         bound_model_path(expected_model_path))
@@ -103,14 +70,8 @@ def register(mcp, context):
         return json.dumps(face_edit.dispatch(payload, context._send_and_receive), ensure_ascii=False)
 
 
-    @public_tool(mcp, wrapped=True, errors=True)
+    @public_tool(mcp, errors=True)
     def edit_planar_faces(edits: list[dict], expected_model_path: str = "") -> str:
-        """서로 다른 닫힌 Brep의 평면을 한 면씩 단일 Undo 기록으로 이동. 그룹·블록 편집을 종료한 일반 모델에서 사용. 객체별 면 번호와 CRC는 같은 관찰에서 가져온다. 준비 단계에서 한 항목이 거부되면 객체 교체를 시작하지 않는다.
-
-        Args:
-            edits: 서로 다른 Brep에 대한 항목 1..32개. 각 항목에 object_id, face_index, expected_geometry_crc, translation을 지정하며 model_02-edit_planar_face tool과 동일한 조건 적용.
-            expected_model_path: 생략 시 현재 연결의 저장 문서 경로 사용. 지정 시 그 경로와 일치해야 한다.
-        """
         try:
             payload = face_edit.batch_request(edits, bound_model_path(expected_model_path))
         except (ValueError, TypeError, OverflowError) as exc:
@@ -119,9 +80,8 @@ def register(mcp, context):
         return json.dumps(face_edit.dispatch(payload, context._send_and_receive, batch=True), ensure_ascii=False)
 
 
-    @public_tool(mcp, wrapped=True, annotations={'destructiveHint': False})
+    @public_tool(mcp, annotations={'destructiveHint': False})
     def save_rhino_document() -> str:
-        """사용자의 영구 저장 요청에 따라 연결된 문서 전체를 기존 .3dm 경로에 저장"""
         try:
             model_path = bound_model_path()
             snapshot = json.loads(context._send_and_receive(json.dumps({
@@ -150,16 +110,9 @@ def register(mcp, context):
                                "saved": None, "requires_reconciliation": True})
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     @query_output
-    def list_materials(category: str = "", query: str = "", include_ids: StrictBool = False, field_groups: list[str] | None = None) -> str:
-        """라이브러리에서 이름·설명·태그나 분류로 재료 검색. model_01-assign_material tool에 사용할 material_id는 include_ids=true로 조회.
-
-        Args:
-            category: 분류와 정확히 일치, 대소문자 구분. 생략하면 전체 분류.
-            query: 이름·설명·태그 검색. 대소문자 구분 없음.
-            field_groups: display, physical, metadata, source, paths, audit, all. 생략·빈 배열이면 요약.
-        """
+    def list_materials(category: str = "", query: str = "", field_groups: list[str] | None = None) -> str:
         validate_field_groups(field_groups, GROUPS)
         materials = context.material_library.list(category=category, query=query)
         return json.dumps(project({
@@ -169,7 +122,7 @@ def register(mcp, context):
         }, field_groups))
 
 
-    @public_tool(mcp, wrapped=True)
+    @public_tool(mcp)
     def assign_material(
         guids: list[str],
         material_id: str,
@@ -177,25 +130,9 @@ def register(mcp, context):
         structural_role: str,
         apply_render_material: bool = True,
         attach_metadata: bool = False,
-        construction_system: str = "",
         construction_detail: str = "",
         construction_reference: dict | None = None,
     ) -> str:
-        """대상 객체마다 층과 일반 모델의 구조 역할을 기록한다. 렌더 재료를 적용하면 재료 전용 레이어로 옮겨 ByLayer로 지정한다. 구축 상세와 참조는 각각 입력한 값만 쓴다. 생략한 키는 객체에 없을 때만 공백 한 칸으로 추가한다. 중복 GUID는 한 번만 처리한다.
-
-        inspect_02-get_objects tool의 fields=["user_dictionary","user_text"]로 기록을 확인한다. success는 전체 대상, partial은 일부 대상의 적용 확인을 뜻한다. 결과를 확인할 수 없으면 재시도 전에 대상 객체를 조회한다.
-
-        Args:
-            guids: 현재 Rhino 객체의 GUID. 관찰 또는 생성 결과에서 가져온 값.
-            material_id: model_04-list_materials tool에서 include_ids=true로 조회한 표준 재료 ID
-            floor: 필수 층 표기. 객체 속성 UserDictionary의 Floor에 기록한다. 기존 User Text의 floor는 유지한다.
-            structural_role: 필수 구조 역할. 일반 모델 분류를 객체 속성 User Text의 structural_role에 기록한다. 해석용 단면·단부·재질은 별도로 지정한다.
-            apply_render_material: true면 재료 전용 레이어(기본 M::<category>::<material_id>)에 배치한다. layer_settings는 새 레이어에만 적용한다. false면 객체 레이어와 렌더 재료를 유지하고 메타데이터를 기록한다.
-            attach_metadata: 렌더 재료를 적용할 때 객체 User Text에 material_id도 기록할지 선택한다. 층·구조 역할 기록과 구축 필드 처리는 이 옵션과 독립적이다.
-            construction_system: 기존 호출에서 구법을 ID로 지정하는 입력. 예를 들어 wood-joist-floor는 construction_reference의 id로 쓰인다. 두 입력을 함께 쓰면 같은 구법이어야 한다.
-            construction_detail: 사람이 읽는 구축 상세 설명. 생략하거나 공백만 입력하면 키가 없는 객체에만 공백 한 칸을 쓴다.
-            construction_reference: 구법 라이브러리의 참조 {"kind":"construction_system","id":"확인한 system_id"}. 두 참조 입력을 모두 생략하면 키가 없는 객체에만 공백 한 칸을 쓴다.
-        """
         material = context.material_library.get(material_id)
         if not material:
             known = ", ".join(sorted(context.material_library.materials)) or "none loaded"
@@ -213,13 +150,11 @@ def register(mcp, context):
 
         warnings = []
         for name, value in (("floor", floor), ("construction_detail", construction_detail),
-                            ("structural_role", structural_role), ("construction_system", construction_system)):
+                            ("structural_role", structural_role)):
             if not isinstance(value, str):
                 return json.dumps(error_payload(f"{name} must be a string."))
         if not floor.strip() or not structural_role.strip():
             return json.dumps(error_payload("floor and structural_role must both be nonempty."))
-        if not construction_system.strip():
-            construction_system = ""
         if construction_reference is not None:
             if (not isinstance(construction_reference, dict)
                     or set(construction_reference) != {"kind", "id"}
@@ -227,16 +162,12 @@ def register(mcp, context):
                     or not isinstance(construction_reference.get("id"), str)
                     or not construction_reference["id"].strip()):
                 return json.dumps(error_payload("construction_reference requires kind=construction_system and a known id."))
-            if construction_system and construction_system != construction_reference["id"]:
-                return json.dumps(error_payload("construction_system and construction_reference identify different sources."))
             construction_system = construction_reference["id"]
-        if construction_system:
             system = context.construction_library.get(construction_system)
             if system is None:
                 known = ", ".join(sorted(context.construction_library.systems)) or "none loaded"
                 return json.dumps(error_payload(f"Unknown construction_system: {construction_system}. "
                                f"Known: {known}"))
-            construction_reference = {"kind": "construction_system", "id": construction_system}
             typical = system.get("render_material_ids", [])
             if typical and material_id not in typical:
                 warnings.append(
@@ -319,7 +250,6 @@ def register(mcp, context):
                 result["construction_detail"] = construction_detail
             if construction_reference:
                 result["construction_reference"] = construction_reference
-                result["construction_system"] = construction_system
         if warnings:
             result["warnings"] = warnings
         return json.dumps(result)

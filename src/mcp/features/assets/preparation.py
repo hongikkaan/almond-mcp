@@ -6,7 +6,6 @@ coplanar merging and block expansion are not registration prerequisites.
 """
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -17,15 +16,18 @@ import re
 import shutil
 from uuid import uuid4
 
+from almond_mcp.features.assets._file_lock import asset_file_lock
 from almond_mcp.tool_response import script_result
 
 
 SCHEMA = "almond-asset-preparation/v2"
+JOB_LOCK = ".prepare.lock"
 GROUPS = {"summary", "parts", "previews", "provenance", "all"}
 STAGES = {"inspect", "normalize", "verify", "status"}
 UNITS = {"", "mm", "cm", "m", "in", "ft"}
 UNITLESS = {".obj", ".stl", ".ply", ".off", ".glb", ".gltf"}
 MAX_BYTES = 100_000_000
+MAX_FAILURE_MESSAGE_CHARS = 600
 TEMPLATES = Path(__file__).with_name("preparation_templates")
 OUTPUTS = {"inspect": "inspected.3dm", "normalize": "normalized.3dm", "verify": "final.3dm"}
 STATES = {"inspect": "inspected", "normalize": "normalized", "verify": "verified"}
@@ -79,29 +81,6 @@ def _job(root: Path, value: str) -> tuple[Path, dict]:
     if record.get("schema") != SCHEMA or Path(record.get("job_dir", "")).resolve() != path:
         raise ValueError("Preparation job identity does not match its directory")
     return path, record
-
-
-@contextmanager
-def _lock(job: Path):
-    with (job / ".prepare.lock").open("a+b") as handle:
-        if handle.seek(0, 2) == 0:
-            handle.write(b"0")
-            handle.flush()
-        handle.seek(0)
-        if os.name == "nt":
-            import msvcrt
-            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
-        else:
-            import fcntl
-            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        try:
-            yield
-        finally:
-            handle.seek(0)
-            if os.name == "nt":
-                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-            else:
-                fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 def _match(path: Path, expected: str, label: str) -> None:
@@ -264,7 +243,7 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
                   "input_units": input_units, "expected_bounds_mm": expected_bounds,
                   "created_at": datetime.now(timezone.utc).isoformat(), "state": "new", "stages": {}}
         _write(job / "job.json", record)
-        with _lock(job):
+        with asset_file_lock(job / JOB_LOCK):
             _dispatch(job, record, stage, sender, execute)
     else:
         if not root.is_dir():
@@ -273,7 +252,7 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
         if source_file or input_units:
             raise ValueError("Source and units are fixed by inspect; omit them for later stages")
         if stage != "status":
-            with _lock(job):
+            with asset_file_lock(job / JOB_LOCK):
                 record = _read(job / "job.json")
                 _match(_inside(job, Path(record["source"])), record["source_sha256"], "Preserved source")
                 if stage == "verify" and record["state"] == "verified" and review is not None:
@@ -299,6 +278,31 @@ def prepare(*, stage: str, source_file: str = "", job_dir: str = "", input_units
     return present(job, record, field_groups=field_groups, include_ids=include_ids, offset=offset, limit=limit)
 
 
+def _failure_message(record: dict) -> str:
+    # Use the stored acknowledgement, without copying its stack trace or payload.
+    detail = record.get("error") or ""
+    execution = record.get("execution")
+    if detail and isinstance(execution, dict):
+        cause = execution.get("result_error")
+        if not cause and execution.get("status") not in {"success", "executed"}:
+            cause = execution.get("message")
+        if isinstance(cause, str) and cause.strip():
+            detail = cause
+
+    unconfirmed = record["state"] in {"running", "unconfirmed"}
+    message = "Preparation completion is unconfirmed." if unconfirmed else "Preparation failed."
+    if isinstance(detail, str) and detail.strip():
+        detail = detail.strip()
+        excerpt = " ".join(detail[:MAX_FAILURE_MESSAGE_CHARS].split())
+        if len(detail) > MAX_FAILURE_MESSAGE_CHARS:
+            excerpt += "…"
+        message += " " + excerpt
+    message += " Read job.json inside the returned job_dir for recorded evidence."
+    if unconfirmed:
+        message += " Check the job state before retrying."
+    return message
+
+
 def present(job: Path, record: dict, *, field_groups=None, include_ids=False, offset=0, limit=50) -> dict:
     groups = set(field_groups or [])
     if "all" in groups:
@@ -307,26 +311,13 @@ def present(job: Path, record: dict, *, field_groups=None, include_ids=False, of
     result = {"status": "pending",
               "job_dir": str(job), "state": state, "ready_for_registration": state == "ready",
               "review_evidence": "caller attestations tied to file hashes; no automatic vision verification",
-              "next_stage": {"inspected": "verify, or normalize for explicit edits", "normalized": "verify",
-                             "verified": "verify with final image review", "ready": "asset_09-register"}.get(state)}
+              "next_stage": None}
     if record.get("error") or state in {"running", "unconfirmed", "failed"}:
         result["status"] = "error"
-        result["next_stage"] = None
-        result["next_step_guide"] = ("Read the error/execution evidence. Use asset_07-prepare tool with stage='status' and job_dir=<returned job_dir> "
-                               "to reread saved evidence only; status does not reconcile late completion or promote an unconfirmed job. "
-                               "Inspect execution and durable reports before deciding recovery; do not replay inspect/normalize/verify automatically.")
-    elif state in {"inspected", "normalized"}:
-        result["next_step_guide"] = ("Reuse job_dir in asset_07-prepare tool with stage='verify' to produce final preview evidence. "
-                               "For intended normalization of an inspected copy, first review its previews/parts and supply the documented review object with stage='normalize'; no edit is implied.")
-    elif state == "verified":
-        result["next_step_guide"] = ("Review the final preview images, retrieving field_groups=['previews'] with asset_07-prepare tool, stage='status' and the returned job_dir if omitted. "
-                               "Only after that review, call stage='verify' with the same job_dir and review={vision_reviewed:true, final_sha256:<review_targets.final_sha256>, name:<chosen name>, asset_id:<chosen ID>}.")
-    elif state == "ready":
-        result["next_step_guide"] = ("If publication is intended, call asset_09-register tool with source_3dm from this response, preparation_job=job_dir, "
-                               "and the reviewed asset_id/name; category is optional. Choose replace_existing explicitly when replacing an existing asset.")
-    if record.get("error"):
-        result.update(message=record["error"], execution=script_result(record.get("execution")),
-                      requires_reconciliation=state in {"running", "unconfirmed"})
+        result["requires_reconciliation"] = state in {"running", "unconfirmed"}
+        result["message"] = _failure_message(record)
+    elif state in STATES.values():
+        result["next_stage"] = "verify"
     completed = next((name for name in ("verify", "normalize", "inspect") if name in record.get("stages", {})), None)
     expected_state = "verified" if state == "ready" else state
     has_checked_stage = expected_state in STATES.values()

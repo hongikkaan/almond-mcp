@@ -55,22 +55,6 @@ class LoadTable:
         return None
 
 
-
-
-def _horizontal_levels(frame: fs.Frame, tol: float = 0.05) -> dict:
-    """Group horizontal elements by elevation: {z: [element index, ...]}."""
-    levels: dict[float, list[int]] = {}
-    for ei, e in enumerate(frame.elements):
-        a, b = frame.nodes[e.n1], frame.nodes[e.n2]
-        L = math.dist(a, b)
-        if L <= 0 or abs(a[2] - b[2]) > min(tol, 0.02 * L):
-            continue
-        z = (a[2] + b[2]) / 2
-        key = next((k for k in levels if abs(k - z) <= tol), None)
-        levels.setdefault(z if key is None else key, []).append(ei)
-    return levels
-
-
 def _plan_distance(frame, ei, p):
     """Clamped plan projection of point p onto element ei: (distance, t, signed offset, unit dir)."""
     a = np.asarray(frame.nodes[frame.elements[ei].n1][:2])
@@ -115,7 +99,7 @@ def apply(frame: fs.Frame, placements: list[dict], table: LoadTable, catalogue: 
 
     Returns a report: per placement the load and the members that carry it, or why it was
     not applied, plus totals and the loaded node indices."""
-    levels = _horizontal_levels(frame)
+    levels = fs.horizontal_levels(frame)
     rows, nodes = [], []
     tot = {"dead_kn": 0.0, "imposed_kn": 0.0}
     for pl in placements:
@@ -176,8 +160,8 @@ def apply(frame: fs.Frame, placements: list[dict], table: LoadTable, catalogue: 
             frame.load(n, fz=-imposed * share, case="Q")      # contents, occupants: variable
             nodes.append(n)
             carried.append({"source_guids": tag or [], "share": round(share, 3)})
-            levels = _horizontal_levels(frame)                 # splits renumber elements
-            members = next(v for k, v in levels.items() if abs(k - z) <= 0.05)
+            levels = fs.horizontal_levels(frame)                 # splits renumber elements
+            members = next(v for k, v in levels.items() if abs(k - z) <= fs.LEVEL_TOL_M)
         row.update({"dead_kn": round(dead, 3), "imposed_kn": round(imposed, 3), "level_m": round(z, 3),
                     "position_m": [round(c[0], 3), round(c[1], 3)], "carried_by": carried})
         tot["dead_kn"] += dead

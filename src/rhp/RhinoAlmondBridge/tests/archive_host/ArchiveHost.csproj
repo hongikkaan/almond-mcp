@@ -1,5 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net8.0</TargetFramework><Nullable>disable</Nullable></PropertyGroup>
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>disable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup><Compile Include="Program.cs" /></ItemGroup>
   <ItemGroup><PackageReference Include="Newtonsoft.Json" Version="13.0.3" /></ItemGroup>
   <ItemGroup><Compile Include="../../../Asset_Panel/ArchiveMeshData.cs" Link="ArchiveMeshData.cs" /></ItemGroup>
   <ItemGroup><Compile Include="../../../Asset_Panel/ArchiveHttpServer.cs" Link="ArchiveHttpServer.cs" /></ItemGroup>

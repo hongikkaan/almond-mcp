@@ -8,7 +8,7 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[3]
 MANIFESTS = {
     "bridge": "src/rhp/RhinoAlmondBridge/runtime-manifest.json",
-    "cos": "src/cos/runtime-manifest.json",
+    "beyond": "src/beyond/runtime-manifest.json",
 }
 BUNDLES = ("src/rhp/RhinoAlmondBridge/plugin-runtime", "src/rhp/AlmondRhino/plugin-runtime")
 COMPONENT_BUNDLES = dict(zip(MANIFESTS, BUNDLES))
@@ -16,7 +16,7 @@ SOURCE_ROOTS = {
     "bridge": ("src/rhp/RhinoAlmondBridge/", "src/rhp/Structural_Analysis/",
                "src/rhp/Asset_Panel/", "src/rhp/RhinoTerminal/", "src/rhp/Engine/",
                "src/mcp/rhino/"),
-    "cos": ("src/cos/rhp/", "src/rhp/Engine/"),
+    "beyond": ("src/beyond/rhp/", "src/rhp/Engine/"),
 }
 SHARED_INPUTS = {"global.json", "src/rhp/tools/build_runtime.ps1"}
 BRIDGE_INPUTS = {
@@ -61,7 +61,7 @@ def is_source(relative, component):
         return False
     if relative in SHARED_INPUTS:
         return True
-    if component == "cos" and relative == "src/cos/build.ps1":
+    if component == "beyond" and relative == "src/beyond/build.ps1":
         return True
     if component == "bridge":
         if relative in BRIDGE_INPUTS:
@@ -79,7 +79,7 @@ def source_files(root, component):
     tracked = subprocess.check_output([
         "git", "-C", str(root), "ls-files", "--cached", "--others", "--exclude-standard", "-z"
     ]).decode().split("\0")
-    return sorted({p for p in tracked if (root / p).is_file() and is_source(p, component)})
+    return sorted({p for p in tracked if is_source(p, component) and (root / p).is_file()})
 
 
 def required_outputs(component):

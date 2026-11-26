@@ -35,7 +35,8 @@ let data, selected, currentView = '3d', filter = 'all';
 let saved;
 try { saved = new Set(JSON.parse(localStorage.getItem('almond.saved') || '[]')); } catch { saved = new Set(); }
 const featured = ['gen-stool-bent-birch-3leg-1', 'gen-office-chair-1', 'gen-sofa-3-seat-1', 'gen-tree-conifer-1', 'gen-park-bench-1', 'gen-dining-table-rect-1', 'gen-person-standing-1', 'gen-washbasin-pedestal-1'];
-const order = (a) => featured.includes(a.id) ? featured.indexOf(a.id) : 100;
+const featuredOrder = new Map(featured.map((id, index) => [id, index]));
+const catalogueNumbers = new WeakMap();
 
 function persistSaved() {
   try { localStorage.setItem('almond.saved', JSON.stringify([...saved])); } catch { /* Saving still works for this session. */ }
@@ -53,18 +54,24 @@ function updateSaveButton() {
 function render() {
   if (!data) return;
   const terms = $('search').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  let assets = data.assets.filter(a => {
+  const category = $('category').value;
+  const sort = $('sort').value;
+  const assets = data.assets.filter(a => {
     const text = [a.name, a.id, a.category, a.variant, a.metadata.render_material_id, ...a.tags, ...a.roles].join(' ').toLowerCase();
-    return terms.every(t => text.includes(t)) && ($('category').value === 'all' || a.category === $('category').value)
+    return terms.every(t => text.includes(t)) && (category === 'all' || a.category === category)
       && (filter === 'all' || filter === a.kind || filter === 'ready' && a.drawing || filter === 'saved' && saved.has(a.id));
   });
-  assets.sort((a,b) => $('sort').value === 'az' ? a.name.localeCompare(b.name) : $('sort').value === 'za' ? b.name.localeCompare(a.name) : order(a) - order(b) || a.name.localeCompare(b.name));
+  assets.sort((a, b) => {
+    if (sort === 'az') return a.name.localeCompare(b.name);
+    if (sort === 'za') return b.name.localeCompare(a.name);
+    return (featuredOrder.get(a.id) ?? 100) - (featuredOrder.get(b.id) ?? 100) || a.name.localeCompare(b.name);
+  });
   $('result-count').textContent = `${String(assets.length).padStart(2,'0')} OF ${data.counts.assets} OBJECTS${filter === 'saved' ? ' / SAVED IN THIS BROWSER' : ''}`;
   $('empty').hidden = assets.length > 0;
   $('grid').innerHTML = assets.map(a => `<article class="card">
     <button class="card-save" data-save="${esc(a.id)}" aria-label="${saved.has(a.id) ? 'Unsave' : 'Save'} ${esc(a.name)}" aria-pressed="${saved.has(a.id)}">${saved.has(a.id) ? '−' : '+'}</button>
     <button class="card-open" data-open="${esc(a.id)}" aria-label="Explore ${esc(a.name)}">
-      <div class="card-stage" ${a.kind === 'model' ? `data-asset-id="${esc(a.id)}"` : ''} ${canPlace(a) ? `data-drag="${esc(a.id)}" title="Drag into a Rhino viewport; Esc cancels"` : ''}><span class="card-index">${String(data.assets.indexOf(a)+1).padStart(3,'0')}</span>${a.preview ? `<img src="${esc(a.preview)}" alt="${esc(a.name)}" loading="lazy" draggable="false">` : `<div class="placeholder">${esc(a.format.toUpperCase())}<small>${a.available ? 'LOCAL FILE' : 'FILE NOT INSTALLED'}</small></div>`}<span class="card-format">${esc(a.format.toUpperCase())}</span>${a.drawing ? '<span class="card-status">' + (a.drawing_ready ? 'DRAWING-READY' : 'DRAWING PACKAGE') + '</span>' : ''}</div>
+      <div class="card-stage" ${a.kind === 'model' ? `data-asset-id="${esc(a.id)}"` : ''} ${canPlace(a) ? `data-drag="${esc(a.id)}" title="Drag into a Rhino viewport; Esc cancels"` : ''}><span class="card-index">${catalogueNumbers.get(a)}</span>${a.preview ? `<img src="${esc(a.preview)}" alt="${esc(a.name)}" loading="lazy" draggable="false">` : `<div class="placeholder">${esc(a.format.toUpperCase())}<small>${a.available ? 'LOCAL FILE' : 'FILE NOT INSTALLED'}</small></div>`}<span class="card-format">${esc(a.format.toUpperCase())}</span>${a.drawing ? '<span class="card-status">' + (a.drawing_ready ? 'DRAWING-READY' : 'DRAWING PACKAGE') + '</span>' : ''}</div>
       <div class="card-name"><span>${esc(a.name)}</span><span aria-hidden="true">↗</span></div><div class="card-sub"><span>${esc(human(a.category))}</span><span>${a.kind === 'model' ? '3D MODEL' : 'DRAWING ELEMENT'}</span></div>
     </button>${placementButton(a)}</article>`).join('');
   $('grid').querySelectorAll('img').forEach(img => img.addEventListener('error', () => {
@@ -95,7 +102,7 @@ function openObject(id) {
   if (!a) return;
   selected = a;
   currentView = a.format === 'glb' && (a.model || a.source_file) ? '3d' : 'preview';
-  $('object-number').textContent = `OBJECT / ${String(data.assets.indexOf(a)+1).padStart(3,'0')}`;
+  $('object-number').textContent = `OBJECT / ${catalogueNumbers.get(a)}`;
   $('object-kind').textContent = `${a.format === '3dm' ? 'MODEL ASSET / 3D' : a.kind === 'model' ? 'GLB MODEL' : 'DRAWING ELEMENT'} / ${human(a.category).toUpperCase()}`;
   $('object-title').textContent = a.name;
   $('object-variant').textContent = a.variant;
@@ -159,6 +166,7 @@ async function load() {
     const response = await fetch('/api/catalogue');
     if(!response.ok) throw new Error(`Archive responded with ${response.status}.`);
     data = await response.json();
+    data.assets.forEach((asset, index) => catalogueNumbers.set(asset, String(index + 1).padStart(3, '0')));
     $('library-status').hidden = data.library_status?.status !== 'error';
     $('library-status').textContent = data.library_status?.message || '';
     if(data.distribution === 'rhino') document.querySelector('.technical').textContent = 'Run AlmondLibrary in Rhino to open the dockable panel. Reload reads registered assets on this computer and keeps the included source files available. Keep Rhino open while browsing.';

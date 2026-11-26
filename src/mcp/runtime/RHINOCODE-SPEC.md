@@ -19,7 +19,7 @@
 프로젝트 Python은 선택한 Plan의 산출물 폴더를 cwd로 사용한다. 일반 스크립트는 프로젝트 루트를 사용한다. Rhino wrapper는 cwd와 프로젝트·모델·산출물 환경을 일시 적용하고 복구한다.
 외부 worker venv 실행기는 제거했으며, 그 패키지를 Rhino Python에 자동 설치하지 않는다.
 timeout은 두 공개 도구 모두 실행 종료가 아닌 대기 한도다.
-공통 runtime의 기본 대기 정책은 요청값을 유지한다. beyond·CoS의 external worker는 구성 훅에서 첫 완료 근거 대기를 `min(timeout_seconds, 60)`으로 제한한다. 기본 60초와 더 짧은 요청은 유지하며, 더 긴 실행은 durable `request_id`를 포함한 pending으로 먼저 반환하고 `script_03-get_execution` tool로 같은 요청을 조회한다. 이 상한은 준비·파일 I/O까지 포함하는 실행 시간 제한이 아니다. 문서 전용 Terminal·시작기에는 이 외부 대기 정책을 적용하지 않는다.
+공통 runtime의 기본 대기 정책은 요청값을 유지한다. beyond의 external worker는 구성 훅에서 첫 완료 근거 대기를 `min(timeout_seconds, 60)`으로 제한한다. 기본 60초와 더 짧은 요청은 유지하며, 더 긴 실행은 durable `request_id`를 포함한 pending으로 먼저 반환하고 `script_03-get_execution` tool로 같은 요청을 조회한다. 이 상한은 준비·파일 I/O까지 포함하는 실행 시간 제한이 아니다. 문서 전용 Terminal·시작기에는 이 외부 대기 정책을 적용하지 않는다.
 
 스킬 본문·네 참고자료·라이선스는 `features/modeling/rhino3d-scripts`에 포함한다.
 정적 도구 가이드 snapshot과 source fingerprint가 이 파일들도 포함하므로 연결 도중 개인 설치본이나 네트워크 내용으로 지침이 바뀌지 않는다. 자동화 적용 차이는 그 폴더의 `INTEGRATION.md`에 명시한다. 대화형 선택·macro의 강제 취소를 자동 도입하지 않는다.
@@ -59,12 +59,12 @@ wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용�
 
 ## 완료 결과 조회
 
-`script_03-get_execution` tool은 같은 실행의 상태·결과를 재실행 없이 조회한다. request_id를 생략하면 현재 연결의 최근 실행을, 지정하면 정확한 요청을 읽는다. `result_fields`, offset/limit와 결과·stdout 선택을 통해 필요한 부분만 조회한다.
+`script_03-get_execution` tool은 같은 실행의 상태·결과를 재실행 없이 조회한다. request_id를 생략하면 현재 연결의 최근 실행을 읽는다. ID를 지정하면 보관 경로와 전체 ID가 일치한 기록으로 연결을 확인하고, 그 기록에 해당하는 완료 근거를 조회한다. `result_fields`, offset/limit와 결과·stdout 선택을 통해 필요한 부분만 조회한다.
 
 최초 실행 응답은 배열 또는 최상위 list 필드마다 20항목, 최상위 문자열은 4096문자까지 반환한다.
 명시적 후속 조회의 offset/limit는 배열에는 항목, 문자열에는 문자 단위다. 문자열을 JSON으로 추정해 다시 파싱하지 않는다. Python의 구조화 결과는 `result`에 dict/list를 직접 대입한다.
 
-확인된 정상 완료 응답은 결과·페이지·요청한 로그·복구 대상 상태를 기본으로 보존한다. `include_diagnostics=true`는 전체 근거를 반환한다. pending·불확실·실패·부분 적용·0이 아닌 CLI exit·결과 표시 오류는 기본 응답에서도 상세 근거를 유지한다.
+정상 완료 응답은 결과·페이지·요청한 로그·복구 상태를 반환한다. 로그 요청 시 `diagnostics`에서 확인 가능한 보관량·잘림·읽기 오류를 확인한다. 기존 연결의 보관 결과를 복구할 때는 실행 대상과 Rhino 프로세스 생존 여부도 `diagnostics`에 포함한다. `include_diagnostics=true`는 CLI 종료·Undo·호출 식별 근거를 추가한다. 미확정·실패·부분 적용 응답은 확인 가능한 진단을 포함한다.
 
 공개 응답 projection은 원본 journal을 읽고 정합한 뒤 적용한다. journal 저장·fence·완료 판단·worker schema 검사를 바꾸지 않는다. 클라이언트 재시작 후에는 정확한 request_id로 보관 파일을 조회할 수 있으며 이 경로는 Rhino를 재연결하거나 실행하지 않는다.
 
@@ -76,7 +76,7 @@ wrapper는 자신이 소유한 0이 아닌 Undo record만 종료한다. 사용�
 
 ## 검증과 전달
 
-오프라인 검사는 정확한 대상 선택, 오래된 identity, timeout·늦은 완료, worker 종료, 손상·불일치 receipt, native 회수 fence, 결과 선택과 실제 worker/catalog 일치를 다룬다. Rhino에서의 언어별 실행·실패·Undo/Redo·복구는 [오프라인 개발 검사](../../../tests/README.md)의 검증 범위 밖이다.
+오프라인에서는 연결 소유권, 시간 초과·취소 뒤 늦은 결과 조회, 요청 신원이 불명확할 때 재실행 차단, 실제 worker와 공개 카탈로그의 일치를 검사한다. Rhino에서의 언어별 실행·실패·Undo/Redo·복구는 별도 통합 검수 대상이다. [개발 검사 안내](../../../tests/README.md)
 
 [루트 작업 지침](../../../AGENTS.md)에 따라 사용자 모델·DB·다른 변경을 보존한다. RHP 빌드·파일 배치·등록·실제 로드·모델링 검증은 각각 다른 증거다. 프로토콜 검사만으로 설계 판단이나 실제 문서의 인쇄 표현이 검증됐다고 보고하지 않는다.
 

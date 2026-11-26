@@ -27,7 +27,7 @@
 
 - 통합 브랜치는 `codex/almond-mcp-next-development`다. 12개 티켓의 구현과 명세·코드 기준 검토 수정은 `8037f90`까지 반영했고, 최종 RHP와 소스 대조 기록은 `890ec48`에 있다.
 - 저장소 기준 검토에서 기본 도구 목록 누락, 블록 보존 확인, PlanSection 범위 기록 문서를 보완했다. 명세 검토에서 첨부 모델 식별 실패를 명시하는 경로와 유형별 메타데이터 안내를 추가했다.
-- Rhino를 정상 종료한 상태에서 Bridge·AlmondRhino를 빌드하고 두 manifest와 공용 Engine DLL 일치를 확인했다. MCP 모듈 722개 통과, Windows 심볼릭 링크 설정 단계 6개 `WinError 1314` 실패, CoS 76개와 루트 통합 19개 통과.
+- Rhino를 정상 종료한 상태에서 Bridge·AlmondRhino를 빌드하고 두 manifest와 공용 Engine DLL 일치를 확인했다. MCP 모듈 722개 통과, Windows 심볼릭 링크 설정 단계 6개 `WinError 1314` 실패, 당시 외부 연결기 76개와 루트 통합 19개 통과.
 - PlanSectionHost를 다시 실행한 오프라인 검사에서 53개가 통과했다. 중첩된 부모·자식 블록 정의의 목록을 각각 필터링하는 Step fixture에서도 temp 구성원 제거와 남은 구성원·변환 보존을 확인했다.
 
 ### 실제 Rhino 통합 검수

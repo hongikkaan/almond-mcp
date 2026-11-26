@@ -395,11 +395,13 @@ def capture_conditioning_pass(frames: Sequence[dict], out_dir: str, send: Sender
     viewport camera is put back where the user had it when the pass finishes.
     Returns a summary dict; the same content is written to ``summary.json``.
     """
-    passes = tuple(p for p in passes if p in PASSES)
-    if not passes:
-        raise ValueError("passes must include at least one of rgb, edge, depth")
-    if width % 2 or height % 2:
-        raise ValueError("width and height must be even (video encoders need it)")
+    if not passes or set(passes) - set(PASSES):
+        raise ValueError("passes must select rgb, edge, depth or a combination of them")
+    passes = tuple(dict.fromkeys(passes))
+    if any(type(dimension) is not int or dimension <= 0 or dimension % 2 for dimension in (width, height)):
+        raise ValueError("width and height must be positive even pixel counts")
+    if any(type(value) is not int or value < 1 for value in (chunk, fps)):
+        raise ValueError("chunk and fps must be positive integers")
     out_dir = os.path.abspath(out_dir)
     for p in passes:
         os.makedirs(os.path.join(out_dir, p), exist_ok=True)
@@ -423,7 +425,7 @@ def capture_conditioning_pass(frames: Sequence[dict], out_dir: str, send: Sender
 
     done, errors = 0, []
     frames = list(frames)
-    for c0 in range(0, len(frames), max(1, chunk)):
+    for c0 in range(0, len(frames), chunk):
         part = frames[c0:c0 + chunk]
         script = render_capture_script(part, out_dir, width, height, passes, rgb_mode, edge_mode, invert_depth, depth_curves)
         payload = json.dumps({"type": "execute", "script": script, "timeout_s": chunk_timeout_s}).encode("utf-8")

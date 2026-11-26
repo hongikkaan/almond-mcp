@@ -20,7 +20,7 @@ RhinoTerminal 명령은 On / Off / PanelToggle 중 하나를 선택합니다.
 
 codex가 아니라 almond로 시작하세요. 이미 일반 Codex가 열려 있으면 /exit로 나온 뒤 almond를 입력합니다.
 패널 안에서 외부 「Almond 시작.cmd」를 실행하지 마세요. 그것은 별도 Rhino를 여는 실행기입니다.
-CLI·Terminal·COS가 A–J의 10개 슬롯을 함께 사용합니다.
+CLI·Terminal·beyond가 A–J의 10개 슬롯을 함께 사용합니다.
 
 이전 대화 이어가기
   1. Codex가 실행 중이면 입력칸에 /exit를 입력해 PowerShell로 나옵니다.

@@ -24,23 +24,6 @@ import numpy as np
 
 from . import frame_solver as fs
 
-LEVEL_TOL = 0.05
-
-
-def _levels(frame: fs.Frame) -> dict:
-    """{z: [element index]} for horizontal elements (same rule as asset_loads)."""
-    levels: dict[float, list[int]] = {}
-    for ei, e in enumerate(frame.elements):
-        a, b = frame.nodes[e.n1], frame.nodes[e.n2]
-        L = math.dist(a, b)
-        if L <= 0 or abs(a[2] - b[2]) > min(LEVEL_TOL, 0.02 * L):
-            continue
-        z = (a[2] + b[2]) / 2
-        key = next((k for k in levels if abs(k - z) <= LEVEL_TOL), None)
-        levels.setdefault(z if key is None else key, []).append(ei)
-    return levels
-
-
 def find_bays(frame: fs.Frame, members: list[int], walls: list | None = None) -> list[dict]:
     """Enclosed faces of the plan graph of ``members`` (+ bearing ``walls`` as node pairs, given
     edge ids -1, -2, ...): [{nodes, edges, area, centroid}].
@@ -156,7 +139,7 @@ def load_member(frame: fs.Frame, ei: int, shape_list: list, cases: dict | None =
 def bearing_walls(frame: fs.Frame, members: list[int], z: float) -> list[tuple[int, int]]:
     """Pairs of adjacent supports on level z with no beam between them: straight, nothing else on
     the line between them, crossing no member in plan."""
-    on_level = [n for n in frame.supports if abs(frame.nodes[n][2] - z) <= LEVEL_TOL]
+    on_level = [n for n in frame.supports if abs(frame.nodes[n][2] - z) <= fs.LEVEL_TOL_M]
     level_nodes = {n for ei in members for n in (frame.elements[ei].n1, frame.elements[ei].n2)} | set(on_level)
     linked = {frozenset((frame.elements[ei].n1, frame.elements[ei].n2)) for ei in members}
     segs = [(np.asarray(frame.nodes[frame.elements[ei].n1][:2]), np.asarray(frame.nodes[frame.elements[ei].n2][:2]))
@@ -226,8 +209,8 @@ def apply(frame: fs.Frame, imposed_kn_m2: float = 0.0, dead_kn_m2: float = 0.0, 
     if q <= 0:
         return report
     shapes: dict[int, list] = {}
-    for z, members in sorted(_levels(frame).items()):
-        if levels_m and not any(abs(z - lz) <= LEVEL_TOL for lz in levels_m):
+    for z, members in sorted(fs.horizontal_levels(frame).items()):
+        if levels_m and not any(abs(z - lz) <= fs.LEVEL_TOL_M for lz in levels_m):
             continue
         walls = bearing_walls(frame, members, z)
         bays = find_bays(frame, members, walls)

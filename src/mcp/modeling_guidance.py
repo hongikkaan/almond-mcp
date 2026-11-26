@@ -9,10 +9,6 @@ from almond_mcp.tool_declarations import declaration_sources, inspect_declaratio
 
 PACKAGE = Path(__file__).resolve().parent
 BASIC_REFERENCE = Path(__file__).resolve()
-BASIC_SUMMARY = (
-    "공통 도구 참고 목록입니다. 이 연결에서 호출할 수 있는 도구와 사용법은 tools/list에서 확인하세요. "
-    "메타데이터·스크립팅 참고 자료는 available_policies에서 선택할 수 있습니다."
-)
 SCRIPTING_SKILL = PACKAGE / "features/modeling/rhino3d-scripts"
 METADATA_POLICY = PACKAGE / "modeling_policy.json"
 RHINOCODE_POLICY = PACKAGE / "RHINOCODE-INSTRUCTIONS.md"
@@ -22,16 +18,16 @@ POLICIES = {
     "rhino_scripting": ("Rhino 스크립트 작성과 API 참고 자료", None),
     "rhinocode": ("RhinoCode 코드·Rhino 커맨드 실행과 결과 확인", RHINOCODE_POLICY),
 }
-PolicyName = Literal[("", *POLICIES)]
+PolicyName = Literal[*POLICIES]
 
 
-def _read_content(path: Path) -> bytes:
-    raw = path.read_bytes()
+def _read_content(path: Path, *, captured_bytes: bytes | None = None) -> bytes:
+    raw = path.read_bytes() if captured_bytes is None else captured_bytes
     return raw if path.suffix == ".png" else raw.decode("utf-8-sig").replace("\r\n", "\n").encode("utf-8")
 
 
-def content_digest(path: Path) -> str:
-    return hashlib.sha256(_read_content(path)).hexdigest()
+def content_digest(path: Path, *, captured_bytes: bytes | None = None) -> str:
+    return hashlib.sha256(_read_content(path, captured_bytes=captured_bytes)).hexdigest()
 
 
 def _tool_sources() -> tuple[Path, ...]:
@@ -64,20 +60,16 @@ def _snapshot() -> dict:
     tools = inspect_declarations(tool_sources, captured_bytes=raw)
     skill_files = [SCRIPTING_SKILL / "INTEGRATION.md", SCRIPTING_SKILL / "SKILL.md",
                    *sorted((SCRIPTING_SKILL / "references").glob("*.md"))]
-    scripting_skill = {
-        "name": "rhino3d-scripts",
-        "sources": [{**reference(p), "text": raw[p].decode("utf-8")} for p in skill_files],
-    }
+    scripting_skill = {"sources": [{**reference(p), "text": raw[p].decode("utf-8")} for p in skill_files]}
     payloads = {
         name: {"text": raw[path].decode("utf-8").strip(), "source_refs": [reference(path)]}
         for name, (_, path) in POLICIES.items()
         if path is not None and path.suffix == ".md"
     }
-    payloads["basic"] = {"text": BASIC_SUMMARY, "source_refs": [reference(BASIC_REFERENCE)],
+    payloads["basic"] = {"available_policies": {name: description for name, (description, _) in POLICIES.items()},
                          "tools": sorted(declaration.name for declaration in tools)}
     payloads["metadata"] = {"policy": json.loads(raw[METADATA_POLICY]), "source_refs": [reference(METADATA_POLICY)]}
-    payloads["rhino_scripting"] = {"scripting_skill": scripting_skill,
-                                   "source_refs": [reference(p) for p in skill_files]}
+    payloads["rhino_scripting"] = {"scripting_skill": scripting_skill}
     if inventory != source_files() or any(_read_content(path) != content for path, content in raw.items()):
         raise RuntimeError("Guide source changed while reading; start a new session.")
     identity = {
@@ -97,12 +89,9 @@ def startup_instructions() -> str:
             f'guide_version={snapshot["guide_version"]}')
 
 
-def read_policy(policy: str = "") -> dict:
-    if not isinstance(policy, str) or (policy and policy not in POLICIES):
-        raise ValueError(f"policy must be one of {', '.join(POLICIES)} or an empty string.")
-    policy = policy or "basic"
+def read_policy(policy: str = "basic") -> dict:
+    if not isinstance(policy, str) or policy not in POLICIES:
+        raise ValueError(f"policy must be one of {', '.join(POLICIES)}.")
     snapshot = _snapshot()
-    return {"status": "success", "guide_version": snapshot["guide_version"],
-            "selected_policy": policy,
-            "available_policies": {name: description for name, (description, _) in POLICIES.items()},
+    return {"guide_version": snapshot["guide_version"], "selected_policy": policy,
             **deepcopy(snapshot["payloads"][policy])}

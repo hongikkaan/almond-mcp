@@ -63,9 +63,11 @@ namespace RhinoAlmondBridge
                     }
                     ids = closure.OrderBy(id => id).ToArray();
                     var snapshots = new JArray(); var problems = ComponentSemanticRegistry.MigrationProblems(doc);
+                    // Reuse successful observations only within this read-only request.
+                    var observed = new Dictionary<Guid, JObject>();
                     foreach (string id in ids)
                     {
-                        try { snapshots.Add(Snapshot(doc, records, id)); }
+                        try { snapshots.Add(Snapshot(doc, records, id, observed)); }
                         catch (Exception e) { problems.Add(new JObject { ["component_id"] = id, ["code"] = "invalid_binding", ["message"] = e.Message }); }
                     }
                     var current = new HashSet<Guid>(snapshots.OfType<JObject>()
@@ -208,7 +210,7 @@ namespace RhinoAlmondBridge
                 ["mutation_applied"] = started ? JValue.CreateNull() : new JValue(false), ["requires_reconciliation"] = started }; }
         }
 
-        private static JObject Snapshot(RhinoDoc doc, JObject records, string id)
+        private static JObject Snapshot(RhinoDoc doc, JObject records, string id, Dictionary<Guid, JObject> observed = null)
         {
             var record = records[id] as JObject ?? throw new ArgumentException("Unknown semantic registration: " + id);
             var descendants = Descendants(records, id);
@@ -219,13 +221,46 @@ namespace RhinoAlmondBridge
             var nested = new HashSet<Guid>(descendants.SelectMany(child => Members(doc, records[child] as JObject)).Select(o => o.Id));
             if (available && !nested.IsSubsetOf(members.Select(o => o.Id))) throw new ArgumentException("A semantic child is outside the actual parent group.");
             var direct = members.Where(o => !nested.Contains(o.Id)).ToArray();
+            var directRows = observed == null ? null : new Dictionary<Guid, JObject>();
+
+            JObject DirectRow(RhinoObject member)
+            {
+                if (observed?.TryGetValue(member.Id, out var prior) == true)
+                {
+                    return WithOwner(prior, id);
+                }
+
+                var row = Describe(doc, member, id);
+                directRows?.Add(member.Id, row);
+                return row;
+            }
+
+            JObject EffectiveRow(RhinoObject member)
+            {
+                if (observed == null)
+                {
+                    return Describe(doc, member, Owner(doc, records, member.Id));
+                }
+                if (observed.TryGetValue(member.Id, out var prior))
+                {
+                    return (JObject)prior.DeepClone();
+                }
+
+                // Direct rows precede the exclusive ownership check, even when bounds can be reused.
+                string owner = Owner(doc, records, member.Id, member);
+                var row = directRows.TryGetValue(member.Id, out var directRow)
+                    ? WithOwner(directRow, owner) : Describe(doc, member, owner);
+                observed.Add(member.Id, row);
+                return row;
+            }
+
             return new JObject { ["complete"] = true, ["live_verified"] = true, ["component_id"] = id, ["model_path"] = doc.Path,
                 ["rhino_group_id"] = record["rhino_group_id"].DeepClone(), ["name"] = group != null && !group.IsDeleted ? group.Name : (string)record["name"],
                 ["scene_ids"] = record["scene_ids"].DeepClone(), ["child_component_ids"] = new JArray(children), ["parent_component_id"] = Active(record) ? Parent(records, id) : null,
                 ["availability"] = !Active(record) ? "unregistered" : available ? "present" : "missing_group",
                 ["registration_status"] = Active(record) ? "registered" : "unregistered",
-                ["objects"] = new JArray(direct.Select(o => Describe(doc, o, id))), ["object_ids"] = new JArray(direct.Select(o => o.Id.ToString("D"))),
-                ["effective_objects"] = new JArray(members.Select(o => Describe(doc, o, Owner(doc, records, o.Id)))),
+                ["objects"] = new JArray(direct.Select(DirectRow)), ["object_ids"] = new JArray(direct.Select(o => o.Id.ToString("D"))),
+                ["effective_objects"] = new JArray(members.Select(EffectiveRow)),
                 ["effective_object_ids"] = new JArray(members.Select(o => o.Id.ToString("D"))), ["pending_objects"] = new JArray(), ["requires_sync"] = false };
         }
         private static JArray Related(RhinoDoc doc, JObject records, string target)
@@ -254,11 +289,11 @@ namespace RhinoAlmondBridge
             if (!path.Add(id) || path.Count > 64 || !(records[id] is JObject record)) throw new ArgumentException("Invalid or cyclic semantic hierarchy.");
             foreach (string child in Children(record)) { descendants?.Add(child); Tree(records, child, path, descendants); } path.Remove(id);
         }
-        private static string Owner(RhinoDoc doc, JObject records, Guid id)
+        private static string Owner(RhinoDoc doc, JObject records, Guid id, RhinoObject member = null)
         {
             var containing = Registered(records).Where(r => {
                 var g = doc.Groups.FindId(Guid.Parse((string)r["rhino_group_id"]));
-                return g != null && !g.IsDeleted && doc.Objects.FindId(id)?.Attributes.IsInGroup(g.Index) == true;
+                return g != null && !g.IsDeleted && (member ?? doc.Objects.FindId(id))?.Attributes.IsInGroup(g.Index) == true;
             }).ToArray();
             var deepest = containing.Where(r => !Descendants(records, (string)r["component_id"])
                 .Overlaps(containing.Select(c => (string)c["component_id"]))).ToArray();
@@ -287,6 +322,12 @@ namespace RhinoAlmondBridge
             if (!b.IsValid || !Double.IsFinite(scale) || scale <= 0) throw new ArgumentException("Invalid member bounds or model units.");
             return new JObject { ["rhino_guid"] = obj.Id.ToString("D"), ["component_id"] = owner, ["object_type"] = obj.ObjectType.ToString(),
                 ["name"] = obj.Attributes.Name ?? "", ["bounds_mm"] = new JArray(b.Min.X*scale,b.Min.Y*scale,b.Min.Z*scale,b.Max.X*scale,b.Max.Y*scale,b.Max.Z*scale) };
+        }
+        private static JObject WithOwner(JObject row, string owner)
+        {
+            var copy = (JObject)row.DeepClone();
+            copy["component_id"] = owner;
+            return copy;
         }
         private static string[] Strings(JToken value) => ComponentSemanticRegistry.Strings(value, true);
         private static Guid[] Ids(JToken value)

@@ -16,7 +16,7 @@ import time
 import uuid
 from types import MappingProxyType
 from almond_mcp.features.planning.output import STEP_HANDOFF_FIELDS
-from almond_mcp.managed_paths import project_path, relative_output, relative_path
+from almond_mcp.managed_paths import VERBATIM_FIELDS, project_path, relative_output
 from almond_mcp.tool_response import error_payload, transform_response
 from almond_mcp.public_names import internal_tool_name
 from storage_cleanup import plain_descendant, process_identity_alive, remove_owned_tree, rhinocode_settled
@@ -167,24 +167,15 @@ def public_result(result, name):
     if name == "project_info" or not os.environ.get("ALMOND_PROJECT_ROOT"):
         return result
 
-    preserve_text_fields = (
-        STEP_HANDOFF_FIELDS if name in {"get_planning", "execute_looping", "get_selection_references"} else ()
-    )
+    verbatim = VERBATIM_FIELDS.get(name, ())
+    if name in {"get_planning", "execute_looping", "get_selection_references"}:
+        verbatim = STEP_HANDOFF_FIELDS
+    package_paths = ("package_dir",) if name in {
+        "generate_asset_drawing_views", "get_asset_drawing", "register_drawing_asset", "refresh_asset"
+    } else ()
 
     def convert(value):
-        if isinstance(value, dict):
-            converted = {key: item if key in preserve_text_fields and isinstance(item, str)
-                         else convert(item) for key, item in value.items()}
-            package = value.get("package_dir")
-            if (name in {"generate_asset_drawing_views", "get_asset_drawing", "register_drawing_asset", "refresh_asset"}
-                    and isinstance(package, str)):
-                # A package on another Windows drive has no relative spelling.
-                # Audit accepts this absolute path only inside configured roots.
-                converted["package_dir"] = relative_path(package, preserve_cross_drive=True)
-            return converted
-        if isinstance(value, list):
-            return [convert(item) for item in value]
-        return relative_output(value)
+        return relative_output(value, verbatim_fields=verbatim, preserve_cross_drive_fields=package_paths)
 
     return transform_response(result, convert, text_transform=lambda text:
                               transform_response(text, convert, text_transform=relative_output))
@@ -543,7 +534,6 @@ class ProjectRuntime(Middleware):
         # Bound document expectations are supplied internally. Optional
         # public arguments remain available to standalone consumers.
         if self.workspace is not None and name in {"analyze_block_reculviely", "upsert_ontological_holon", "sync_ontological_holon",
-                    "focus_holons",
                     "list_ontological_holons"} and not args.get("expected_model_path"):
             args["expected_model_path"] = self.locations["model_path"]
         message = context.message.model_copy(update={"arguments": args})

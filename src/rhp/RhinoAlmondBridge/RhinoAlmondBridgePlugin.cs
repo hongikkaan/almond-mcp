@@ -20,7 +20,7 @@ namespace RhinoAlmondBridge
             Instance = this;
         }
 
-        // Panels and native helpers must exist before a Terminal/Codex/CoS
+        // Panels and native helpers must exist before a Terminal or beyond
         // session attaches. Loading this plugin does not start a server.
         public override PlugInLoadTime LoadTime => PlugInLoadTime.AtStartup;
 
@@ -48,7 +48,7 @@ namespace RhinoAlmondBridge
 
             // The Engine consumes IBridgeProvider after plugin initialization.
             _server = new BridgeServer();
-            RhinoApp.WriteLine("Almond 준비됨. 외부 Codex·CoS 연결은 almondconnect, 터미널은 RhinoTerminal → On을 사용하세요.");
+            RhinoApp.WriteLine("Almond 준비됨. 외부 beyond 연결은 almondconnect, 터미널은 RhinoTerminal → On을 사용하세요.");
 
             return LoadReturnCode.Success;
         }
